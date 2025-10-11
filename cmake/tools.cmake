@@ -45,13 +45,14 @@ function(addPS1Executable name)
 	# As the GCC linker outputs executables in ELF format, a script must be run
 	# on each compiled binary to convert it to the .psexe format expected by the
 	# PS1. By default all custom commands run from the build directory, so paths
-	# to files in the source tree must be prefixed with ${PROJECT_SOURCE_DIR}.
+	# to files in the source tree must be relative to ${PROJECT_SOURCE_DIR} or
+	# ${CMAKE_CURRENT_FUNCTION_LIST_DIR}.
 	add_custom_command(
 		TARGET     ${name} POST_BUILD
 		BYPRODUCTS ${name}.psexe
 		COMMAND
 			"${Python3_EXECUTABLE}"
-			"${PROJECT_SOURCE_DIR}/tools/convertExecutable.py"
+			"${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../tools/convertExecutable.py"
 			"$<TARGET_FILE:${name}>"
 			${name}.psexe
 		VERBATIM
@@ -67,7 +68,7 @@ function(addPS1ExecutableAdv name loadAddress stackTop region)
 		BYPRODUCTS "${name}.psexe"
 		COMMAND
 			"${Python3_EXECUTABLE}"
-			"${PROJECT_SOURCE_DIR}/tools/convertExecutable.py"
+			"${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../tools/convertExecutable.py"
 			-r "${region}"
 			-s "${stackTop}"
 			"$<TARGET_FILE:${name}>"
@@ -82,7 +83,7 @@ function(convertImage input bpp)
 		DEPENDS "${PROJECT_SOURCE_DIR}/${input}"
 		COMMAND
 			"${Python3_EXECUTABLE}"
-			"${PROJECT_SOURCE_DIR}/tools/convertImage.py"
+			"${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../tools/convertImage.py"
 			-b ${bpp}
 			"${PROJECT_SOURCE_DIR}/${input}"
 			${ARGN}
