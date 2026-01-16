@@ -270,8 +270,9 @@ int main(int argc, const char **argv) {
 			// are ordered clockwise then the face is visible, otherwise it can
 			// be skipped as it is not facing the camera.
 			gte_command(GTE_CMD_NCLIP);
+			int order = gte_getDataReg(GTE_MAC0);
 
-			if (gte_getDataReg(GTE_MAC0) <= 0)
+			if (order <= 0)
 				continue;
 
 			// Save the first transformed vertex (the GTE only keeps the X/Y

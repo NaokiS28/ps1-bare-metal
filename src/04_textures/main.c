@@ -107,7 +107,7 @@ static void sendVRAMData(
 	// the texture. If more than 16 words have to be sent, configure DMA to
 	// split the transfer into 16-word chunks in order to make sure the GPU will
 	// not miss any data.
-	size_t length = (width * height) / 2;
+	size_t length = (width * height + 1) / 2;
 	size_t chunkSize, numChunks;
 
 	if (length < DMA_MAX_CHUNK_SIZE) {
@@ -149,6 +149,8 @@ typedef struct {
 } DMAChain;
 
 static uint32_t *allocatePacket(DMAChain *chain, int numCommands) {
+	assert((numCommands >= 0) && (numCommands <= DMA_MAX_CHUNK_SIZE));
+
 	uint32_t *ptr      = chain->nextPacket;
 	chain->nextPacket += numCommands + 1;
 
@@ -178,13 +180,16 @@ static void uploadTexture(
 	// larger than 256x256 pixels.
 	assert((width <= 256) && (height <= 256));
 
-	// Upload the texture to VRAM and wait for the process to complete.
+	// Upload the texture to VRAM, wait for the process to complete and flush
+	// any previously used texture from the GPU's internal cache.
 	sendVRAMData(data, x, y, width, height);
 	waitForDMADone();
+	GPU_GP0 = gp0_flushCache();
 
-	// Update the "texpage" attribute, a 16-bit field telling the GPU several
-	// details about the texture such as which 64x256 page it can be found in,
-	// its color depth and how semitransparent pixels shall be blended.
+	// Update the "texture page" attribute, a 16-bit field telling the GPU
+	// several details about the texture such as which 64x256 page it can be
+	// found in, its color depth and how semitransparent pixels shall be
+	// blended.
 	info->page = gp0_page(
 		x /  64,
 		y / 256,
@@ -272,9 +277,11 @@ int main(int argc, const char **argv) {
 		ptr[2] = gp0_xy(SCREEN_WIDTH, SCREEN_HEIGHT);
 
 		// Use the texture we uploaded to draw a sprite (textured rectangle).
-		// Two separate commands have to be sent: a texpage command to apply our
-		// texpage attribute and disable dithering, followed by the actual
-		// rectangle drawing command.
+		// Two separate commands have to be sent: a texture page command to
+		// apply our page attribute and disable dithering, followed by the
+		// actual rectangle drawing command. Any subsequent commands will reuse
+		// the last page settings by default, so it's not strictly necessary to
+		// send a page command for each rectangle drawn.
 		ptr    = allocatePacket(chain, 5);
 		ptr[0] = gp0_texpage(texture.page, false, false);
 		ptr[1] = gp0_rectangle(true, true, false);

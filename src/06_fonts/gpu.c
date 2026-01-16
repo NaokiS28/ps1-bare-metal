@@ -81,7 +81,7 @@ void sendVRAMData(
 	waitForDMADone();
 	assert(!((uint32_t) data % 4));
 
-	size_t length = (width * height) / 2;
+	size_t length = (width * height + 1) / 2;
 	size_t chunkSize, numChunks;
 
 	if (length < DMA_MAX_CHUNK_SIZE) {
@@ -108,6 +108,8 @@ void sendVRAMData(
 }
 
 uint32_t *allocatePacket(DMAChain *chain, int numCommands) {
+	assert((numCommands >= 0) && (numCommands <= DMA_MAX_CHUNK_SIZE));
+
 	uint32_t *ptr      = chain->nextPacket;
 	chain->nextPacket += numCommands + 1;
 
@@ -129,6 +131,7 @@ void uploadTexture(
 
 	sendVRAMData(data, x, y, width, height);
 	waitForDMADone();
+	GPU_GP0 = gp0_flushCache();
 
 	info->page   = gp0_page(
 		x /  64,
@@ -166,6 +169,7 @@ void uploadIndexedTexture(
 	waitForDMADone();
 	sendVRAMData(palette, paletteX, paletteY, numColors, 1);
 	waitForDMADone();
+	GPU_GP0 = gp0_flushCache();
 
 	info->page   = gp0_page(
 		imageX /  64,

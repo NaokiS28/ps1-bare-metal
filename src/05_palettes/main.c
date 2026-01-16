@@ -101,7 +101,7 @@ static void sendVRAMData(
 	waitForDMADone();
 	assert(!((uint32_t) data % 4));
 
-	size_t length = (width * height) / 2;
+	size_t length = (width * height + 1) / 2;
 	size_t chunkSize, numChunks;
 
 	if (length < DMA_MAX_CHUNK_SIZE) {
@@ -135,6 +135,8 @@ typedef struct {
 } DMAChain;
 
 static uint32_t *allocatePacket(DMAChain *chain, int numCommands) {
+	assert((numCommands >= 0) && (numCommands <= DMA_MAX_CHUNK_SIZE));
+
 	uint32_t *ptr      = chain->nextPacket;
 	chain->nextPacket += numCommands + 1;
 
@@ -176,11 +178,13 @@ static void uploadIndexedTexture(
 	// exceed its bounds.
 	assert(!(paletteX % 16) && ((paletteX + numColors) <= 1024));
 
-	// Upload the image and palette data separately.
+	// Upload the image and palette data separately, then flush any previously
+	// used texture from the GPU's internal cache.
 	sendVRAMData(image, imageX, imageY, width / widthDivider, height);
 	waitForDMADone();
 	sendVRAMData(palette, paletteX, paletteY, numColors, 1);
 	waitForDMADone();
+	GPU_GP0 = gp0_flushCache();
 
 	// Update the texpage and CLUT attributes to match the location of the image
 	// and palette as well as the color depth.

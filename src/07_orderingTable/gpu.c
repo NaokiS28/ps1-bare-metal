@@ -81,7 +81,7 @@ void sendVRAMData(
 	waitForDMADone();
 	assert(!((uint32_t) data % 4));
 
-	size_t length = (width * height) / 2;
+	size_t length = (width * height + 1) / 2;
 	size_t chunkSize, numChunks;
 
 	if (length < DMA_MAX_CHUNK_SIZE) {
@@ -132,11 +132,12 @@ void clearOrderingTable(uint32_t *table, int numEntries) {
 // between two packets with the same Z index the most recently added one will
 // take precedence.
 uint32_t *allocatePacket(DMAChain *chain, int zIndex, int numCommands) {
+	// Ensure both the packet length and index are within valid range.
+	assert((numCommands >= 0) && (numCommands <= DMA_MAX_CHUNK_SIZE));
+	assert((zIndex      >= 0) && (zIndex      <  ORDERING_TABLE_SIZE));
+
 	uint32_t *ptr      = chain->nextPacket;
 	chain->nextPacket += numCommands + 1;
-
-	// Ensure the index is within valid range.
-	assert((zIndex >= 0) && (zIndex < ORDERING_TABLE_SIZE));
 
 	// Splice the new packet into the ordering table by:
 	// - taking the address the ordering table entry currently points to;
@@ -162,6 +163,7 @@ void uploadTexture(
 
 	sendVRAMData(data, x, y, width, height);
 	waitForDMADone();
+	GPU_GP0 = gp0_flushCache();
 
 	info->page   = gp0_page(
 		x /  64,
@@ -199,6 +201,7 @@ void uploadIndexedTexture(
 	waitForDMADone();
 	sendVRAMData(palette, paletteX, paletteY, numColors, 1);
 	waitForDMADone();
+	GPU_GP0 = gp0_flushCache();
 
 	info->page   = gp0_page(
 		imageX /  64,

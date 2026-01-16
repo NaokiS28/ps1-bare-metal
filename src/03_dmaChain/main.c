@@ -96,7 +96,8 @@ static void sendLinkedList(const void *data) {
 // Define a structure we'll allocate our linked list packets into. We are going
 // to use a fixed-size buffer and keep a pointer to the beginning of its free
 // area, incrementing it whenever we allocate a new packet.
-#define CHAIN_BUFFER_SIZE 1024
+#define DMA_MAX_CHUNK_SIZE   16
+#define CHAIN_BUFFER_SIZE  1024
 
 typedef struct {
 	uint32_t data[CHAIN_BUFFER_SIZE];
@@ -104,6 +105,11 @@ typedef struct {
 } DMAChain;
 
 static uint32_t *allocatePacket(DMAChain *chain, int numCommands) {
+	// Ensure no more than 16 command words are sent to the GPU at once, as
+	// sending larger packets may overrun the GP0 command FIFO and result in
+	// corrupted data.
+	assert((numCommands >= 0) && (numCommands <= DMA_MAX_CHUNK_SIZE));
+
 	// Grab the current pointer to the next packet then increment it to allocate
 	// a new packet. We have to allocate an extra word for the packet's header,
 	// which will contain the number of GP0 commands the packet is made up of as
