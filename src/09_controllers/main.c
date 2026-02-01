@@ -88,8 +88,19 @@ static bool waitForAcknowledge(int timeout) {
 	// interface to the interrupt controller. This is not guaranteed to happen
 	// (it will not if e.g. no device is connected), so we have to implement a
 	// timeout to avoid waiting forever in such cases.
-	for (; timeout > 0; timeout -= 10) {
-		if (IRQ_STAT & (1 << IRQ_SIO0)) {
+
+	timeout -= 10;
+	delayMicroseconds(10);	// An ACK should happen around about 10-20 microseconds later
+	
+	int adjustedTimeout = timeout / 20;
+	for (; adjustedTimeout < timeout; adjustedTimeout += 20);
+
+	for (; adjustedTimeout > 0; adjustedTimeout -= 20) {
+		uint16_t a = IRQ_STAT;
+		delayMicroseconds(10); // Reading IRQ_STAT too fast can cause glitching and false positives.
+		uint16_t b = IRQ_STAT;
+
+		if (a == b && a & (1 << IRQ_SIO0)) {	// A/B comparison all but eliminates false positives.
 			// Reset the interrupt controller and serial interface's flags to
 			// ensure the interrupt can be triggered again.
 			IRQ_STAT     = ~(1 << IRQ_SIO0);
@@ -152,12 +163,12 @@ static uint8_t exchangeByte(uint8_t value) {
 	// Wait until the interface is ready to accept a byte to send, then wait for
 	// it to finish receiving the byte sent by the device.
 	while (!(SIO_STAT(0) & SIO_STAT_TX_NOT_FULL))
-		__asm__ volatile("");
+		delayMicroseconds(5);
 
 	SIO_DATA(0) = value;
 
 	while (!(SIO_STAT(0) & SIO_STAT_RX_NOT_EMPTY))
-		__asm__ volatile("");
+		delayMicroseconds(5);
 
 	return SIO_DATA(0);
 }
